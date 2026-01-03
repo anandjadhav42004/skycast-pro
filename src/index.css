@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "tailwindcss";
+
+/* Iske niche ye bhi add kar do extra safety ke liye */
+:root {
+  background-color: #030712;
+}
