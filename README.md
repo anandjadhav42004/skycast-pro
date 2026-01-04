@@ -1,16 +1,25 @@
-# React + Vite
+# 🌤️ SkyCast Pro - Dashboard 2.0
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A premium, iPhone-style weather dashboard built with React and Framer Motion. It features dynamic backgrounds based on the searched city and calculates distance from your current location.
 
-Currently, two official plugins are available:
+## 🚀 Features
+- **Dynamic Backgrounds:** Legit city images fetched via Unsplash API.
+- **Air Quality & UV Index:** Real-time pollution and sun index data.
+- **Distance Tracking:** Calculates how far the city is from you in KM.
+- **Glassmorphism UI:** Clean, blurred interface inspired by iOS.
+- **Quick Search:** Instant weather for popular Indian cities.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠️ Tech Stack
+- React.js (Vite)
+- Tailwind CSS
+- Framer Motion (Animations)
+- Lucide React (Icons)
+- OpenWeather API & Unsplash API
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## ⚙️ Setup Instructions
+1. Clone the repo: `git clone https://github.com/anandjadhav42004/skycast-pro.git`
+2. Install dependencies: `npm install`
+3. Create a `.env` file and add your API keys:
+   ```env
+   VITE_WEATHER_API_KEY=your_key
+   VITE_UNSPLASH_ACCESS_KEY=your_key
