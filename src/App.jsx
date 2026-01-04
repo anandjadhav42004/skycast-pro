@@ -1,156 +1,207 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Wind, Droplets, Thermometer, Cloud, Sun, CloudRain, Snowflake, Navigation } from 'lucide-react';
+import { Search, Wind, Droplets, Thermometer, CloudRain, Navigation, Eye, Gauge, Sunrise, X, SunMedium, WindArrowDown, MapPin, Clock } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import './App.css';
 
-const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
-
+const API_KEY = import.meta.env.VITE_WEATHER_API_KEY; 
+const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY; 
 
 function App() {
   const [city, setCity] = useState('');
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
+  const [aqi, setAqi] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [bgImage, setBgImage] = useState('');
+  const [userCoords, setUserCoords] = useState(null);
+  const [distance, setDistance] = useState(null);
 
-  const getTheme = () => {
-    if (!weather) return "from-slate-900 via-slate-950 to-black";
-    const main = weather.weather[0].main.toLowerCase();
-    if (main.includes('clear')) return "from-blue-400 via-blue-600 to-blue-800";
-    if (main.includes('cloud')) return "from-gray-700 via-slate-800 to-slate-900";
-    if (main.includes('rain')) return "from-indigo-800 via-purple-900 to-slate-950";
-    return "from-slate-900 via-slate-950 to-black";
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+    }, (err) => console.log("Location Denied"));
+  }, []);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
   };
 
-  const fetchData = async (searchCity) => {
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    return Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))));
+  };
+
+  const handleSearch = async (searchVal) => {
+    const finalCity = typeof searchVal === 'string' ? searchVal : city;
+    if (!finalCity) return;
+    
     setLoading(true);
     try {
+      const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${finalCity.trim()}&units=metric&appid=${API_KEY}`);
+      const { lat, lon } = res.data.coord;
 
-      const currentRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${searchCity}&units=metric&appid=${API_KEY}`);
-      setWeather(currentRes.data);
+      const aqiRes = await axios.get(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
+      setAqi(aqiRes.data.list[0].main.aqi);
 
+      const imgRes = await axios.get(`https://api.unsplash.com/search/photos`, {
+        params: {
+          query: `${finalCity} india landmark city skyline`,
+          orientation: 'landscape', per_page: 1, client_id: UNSPLASH_KEY
+        }
+      });
 
-      const forecastRes = await axios.get(`https://api.openweathermap.org/data/2.5/forecast?q=${searchCity}&units=metric&appid=${API_KEY}`);
+      if (imgRes.data.results.length > 0) {
+        setBgImage(imgRes.data.results[0].urls.full + "&sig=" + new Date().getTime());
+      }
 
-      const dailyData = forecastRes.data.list.filter(reading => reading.dt_txt.includes("12:00:00"));
-      setForecast(dailyData);
+      if (userCoords) {
+        setDistance(calculateDistance(userCoords.lat, userCoords.lon, lat, lon));
+      }
+
+      const fRes = await axios.get(`https://api.openweathermap.org/data/2.5/forecast?q=${finalCity.trim()}&units=metric&appid=${API_KEY}`);
+      setForecast(fRes.data.list.filter(f => f.dt_txt.includes("12:00:00")));
+      
+      setWeather(res.data);
     } catch (err) {
-      alert("City nahi mili!");
+      alert("City name check karle bhai!");
     } finally {
       setLoading(false);
     }
   };
 
-
-  const getMyLocation = () => {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const { latitude, longitude } = pos.coords;
-
-      axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${API_KEY}`)
-        .then(res => fetchData(res.data.name));
-    });
-  };
-
-  const getWeatherIcon = (desc, size = 80) => {
-    const d = desc.toLowerCase();
-    if (d.includes('rain')) return <CloudRain size={size} className="text-blue-300" />;
-    if (d.includes('clear')) return <Sun size={size} className="text-yellow-300" />;
-    if (d.includes('snow')) return <Snowflake size={size} className="text-white" />;
-    return <Cloud size={size} className="text-gray-300" />;
+  const goHome = () => {
+    setWeather(null);
+    setBgImage('');
+    setCity('');
+    setAqi(null);
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${getTheme()} transition-all duration-1000 flex items-center justify-center p-4 text-white font-sans`}>
-      <div className="w-full max-w-4xl">
-        
+    <div className="app-container">
+      <AnimatePresence>
+        {bgImage && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="full-screen-bg" style={{ backgroundImage: `url(${bgImage})` }} 
+          />
+        )}
+      </AnimatePresence>
 
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1 group">
-            <input 
-              type="text"
-              className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl py-4 px-6 pl-14 text-lg focus:outline-none focus:ring-2 focus:ring-white/50 transition-all shadow-xl"
-              placeholder="Search City..."
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchData(city)}
-            />
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/50" size={24} />
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => fetchData(city)} className="bg-white text-blue-900 px-8 py-4 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-lg uppercase tracking-wider text-sm">
-              {loading ? '...' : 'Check'}
-            </button>
-            <button onClick={getMyLocation} className="bg-blue-500/30 backdrop-blur-md p-4 rounded-2xl hover:bg-blue-500/50 transition-all border border-white/10 shadow-lg">
-              <Navigation size={24} />
-            </button>
-          </div>
+      <div className={`ui-layer ${!weather ? 'home-centered' : 'data-top'}`}>
+        
+        
+        <div className="top-nav-bar">
+          {!weather ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="greeting-text">
+              <span className="sun-icon-mini"><SunMedium size={18} /></span>
+              {getGreeting()}, Anand
+            </motion.div>
+          ) : (
+            <button className="exit-btn-ios" onClick={goHome}><X size={16} /> Close</button>
+          )}
         </div>
 
-        <AnimatePresence mode="wait">
-          {weather && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid md:grid-cols-3 gap-6">
-              
+        
+        {!weather && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="welcome-content">
+            <h2 className="main-intro-title">Where would you like to go?</h2>
+            <p className="sub-intro-text">Check live weather, legit city views, and distance.</p>
+          </motion.div>
+        )}
 
-              <div className="md:col-span-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-5xl font-black flex items-center gap-3 mb-2 tracking-tighter">
-                        <MapPin className="text-blue-400" size={40} /> {weather.name}
-                      </h2>
-                      <p className="text-white/70 text-lg font-medium">{new Date().toDateString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-8xl font-black">{Math.round(weather.main.temp)}°</div>
-                      <p className="text-xl font-bold uppercase tracking-widest text-blue-300">{weather.weather[0].description}</p>
-                    </div>
-                  </div>
+        
+        <div className="search-box-container">
+          <div className="glass-search-bar-premium">
+            <Search size={22} className="search-icon-dim" />
+            <input 
+              type="text" 
+              placeholder="Search Indian City or State..." 
+              value={city} 
+              onChange={(e) => setCity(e.target.value)} 
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+            />
+            <button onClick={() => handleSearch()} className="premium-btn-go">
+              {loading ? <div className="loader-dots">...</div> : 'Search'}
+            </button>
+          </div>
 
-                  <div className="mt-12 grid grid-cols-3 gap-4 border-t border-white/10 pt-8">
-                    <div className="text-center">
-                      <Droplets className="mx-auto mb-2 text-blue-300" />
-                      <p className="text-[10px] uppercase font-bold text-white/50">Humidity</p>
-                      <p className="text-xl font-bold">{weather.main.humidity}%</p>
-                    </div>
-                    <div className="text-center">
-                      <Wind className="mx-auto mb-2 text-emerald-400" />
-                      <p className="text-[10px] uppercase font-bold text-white/50">Wind Speed</p>
-                      <p className="text-xl font-bold">{weather.wind.speed} m/s</p>
-                    </div>
-                    <div className="text-center">
-                      <Thermometer className="mx-auto mb-2 text-orange-400" />
-                      <p className="text-[10px] uppercase font-bold text-white/50">Feels Like</p>
-                      <p className="text-xl font-bold">{Math.round(weather.main.feels_like)}°</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-
-              <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-6 shadow-2xl">
-                <h3 className="text-xl font-bold mb-6 flex items-center gap-2 px-2">
-                  <Cloud size={20} /> 5-Day Forecast
-                </h3>
-                <div className="space-y-4">
-                  {forecast.map((day, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
-                      <p className="font-bold text-sm w-12">
-                        {new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' })}
-                      </p>
-                      {getWeatherIcon(day.weather[0].description, 28)}
-                      <p className="font-black text-lg">{Math.round(day.main.temp)}°</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </motion.div>
+          
+          {!weather && (
+            <div className="quick-chips">
+              {['Pune', 'Mumbai', 'Latur', 'Delhi', 'Rajasthan'].map((c) => (
+                <button key={c} onClick={() => handleSearch(c)} className="chip-btn">
+                  {c}
+                </button>
+              ))}
+            </div>
           )}
-        </AnimatePresence>
+        </div>
 
-        <footer className="mt-10 text-center text-white/30 text-[10px] font-black tracking-[0.4em] uppercase">
-          SKYCAST PRO • Dashboard 2.0 • Build for Excellence
-        </footer>
+        {weather && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="weather-content">
+            <div className="hero-data-box">
+              <h1 className="city-title-main">{weather.name}</h1>
+              <div className="temp-huge-display">{Math.round(weather.main.temp)}°</div>
+              <p className="status-label">{weather.weather[0].main}</p>
+              <div className="hl-container">H:{Math.round(weather.main.temp_max)}° &nbsp; L:{Math.round(weather.main.temp_min)}°</div>
+              
+              {distance && (
+                <div className="dist-badge-premium">
+                  <MapPin size={12} fill="white" /> {distance} km away from you
+                </div>
+              )}
+            </div>
+
+            <div className="widgets-grid-iphone">
+              {/* AQI Widget */}
+              <div className="glass-widget aqi-special">
+                <div className="w-head"><WindArrowDown size={14}/> AIR QUALITY</div>
+                <div className="aqi-main-val">
+                  <span className="aqi-num">{aqi}</span>
+                  <span className="aqi-txt" style={{color: aqi <= 2 ? '#4ade80' : '#fb923c'}}>
+                    {aqi <= 2 ? 'Good' : 'Moderate'}
+                  </span>
+                </div>
+                <div className="aqi-line"><div className="aqi-fill" style={{width: `${aqi*20}%`}}></div></div>
+              </div>
+
+              <Widget icon={<SunMedium size={16}/>} label="UV INDEX" value={aqi > 2 ? "High" : "Low"} note="Sunscreen needed." />
+              <Widget icon={<Droplets size={16}/>} label="HUMIDITY" value={`${weather.main.humidity}%`} note="The dew point is 21°." />
+              <Widget icon={<Wind size={16}/>} label="WIND" value={`${weather.wind.speed} m/s`} note="North direction." />
+              
+              <div className="forecast-card-premium glass-widget">
+                <p className="w-head">5-DAY FORECAST</p>
+                {forecast.map((f, i) => (
+                  <div key={i} className="f-row">
+                    <span className="f-day">{new Date(f.dt * 1000).toLocaleDateString('en', {weekday: 'short'})}</span>
+                    <CloudRain size={20} color="#60a5fa" />
+                    <span className="f-temp">{Math.round(f.main.temp)}°</span>
+                  </div>
+                ))}
+              </div>
+
+              <Widget icon={<Eye size={16}/>} label="VISIBILITY" value={`${weather.visibility/1000} km`} note="Clear conditions." />
+              <Widget icon={<Gauge size={16}/>} label="PRESSURE" value={weather.main.pressure} note="hPa" />
+            </div>
+          </motion.div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function Widget({ icon, label, value, note }) {
+  return (
+    <div className="glass-widget">
+      <div className="w-head">{icon} <span>{label}</span></div>
+      <div className="w-value">{value}</div>
+      <div className="w-note">{note}</div>
     </div>
   );
 }
