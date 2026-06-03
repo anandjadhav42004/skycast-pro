@@ -38,6 +38,18 @@ function App() {
     return Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))));
   };
 
+  const getWeatherQuery = (weatherCondition) => {
+    const condition = weatherCondition.toLowerCase();
+    if (condition.includes('rain')) return 'rainy city streets weather';
+    if (condition.includes('clear') || condition.includes('sunny')) return 'sunny city skyline bright day';
+    if (condition.includes('cloud')) return 'cloudy city landscape';
+    if (condition.includes('snow')) return 'snowy city winter';
+    if (condition.includes('thunder') || condition.includes('storm')) return 'stormy city lightning weather';
+    if (condition.includes('mist') || condition.includes('fog')) return 'foggy misty city morning';
+    if (condition.includes('drizzle')) return 'drizzle city rain weather';
+    return 'city skyline landscape';
+  };
+
   const handleSearch = async (searchVal) => {
     const finalCity = typeof searchVal === 'string' ? searchVal : city;
     if (!finalCity) return;
@@ -46,13 +58,15 @@ function App() {
     try {
       const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${finalCity.trim()}&units=metric&appid=${API_KEY}`);
       const { lat, lon } = res.data.coord;
+      const weatherCondition = res.data.weather[0].main;
 
       const aqiRes = await axios.get(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
       setAqi(aqiRes.data.list[0].main.aqi);
 
+      const weatherQuery = getWeatherQuery(weatherCondition);
       const imgRes = await axios.get(`https://api.unsplash.com/search/photos`, {
         params: {
-          query: `${finalCity} india landmark city skyline`,
+          query: `${finalCity} india ${weatherQuery}`,
           orientation: 'landscape', per_page: 1, client_id: UNSPLASH_KEY
         }
       });
